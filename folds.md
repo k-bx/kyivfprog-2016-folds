@@ -562,9 +562,7 @@ sys     0m0.006s
 
 # `Num`
 
-We can also give `Fold` instances for `Num`, `Fractional` and `Floating`!
-
-These are trivially derived from the `Applicative` instance:
+Можемо надати інстанси `Fold` класам `Num`, `Fractional` та `Floating`!
 
 ```haskell
 instance Num b => Num (Fold a b) where
@@ -608,9 +606,9 @@ instance Floating b => Floating (Fold a b) where
     logBase = liftA2 logBase
 ```
 
-# Numeric `Fold`s
+# Числові `Fold`и
 
-These instances let us do cool things like:
+Можемо робити круті штуки:
 
 ```haskell
 >>> fold (length - 1) [1..10]
@@ -624,13 +622,13 @@ These instances let us do cool things like:
 99
 ```
 
-# Standard deviation
+# Стандартне відхилення
 
-The formula for the standard deviation is:
-
-![](std.svg)
-
-The equivalent `Fold` reads almost exactly like the latter formula:
+Формула стандартного відхилення:
+$$
+\sqrt{\frac{1}{N} \sum_{i=1}^N (x_i - \overline x)^2} = \sqrt{\frac{1}{N} \left(\sum_{i=1}^N x_i^2\right) - \overline{x}^2} = \sqrt{\left(\frac{1}{N}\sum_{i=1}^N x_i^2\right) - \left(\frac{1}{N}\sum_{i=1}^N x_i\right)^2}
+$$
+Еквівалент через `Fold` читається майже так само просто, як остання формула:
 
 ```haskell
 standardDeviation :: Floating n => Fold n n
@@ -643,15 +641,6 @@ standardDeviation = sqrt ((sumOfSquares / length) - (sum / length) ^ 2)
 >>> fold standardDeviation [1..100]
 28.86607004772212
 ```
-
-# Questions?
-
-* `Fold` basics
-* Non-trivial `Fold`s
-* Composing multiple `Fold`s into a single `Fold`
-* **Alternative ways to consume `Fold`s**
-* Focusing in on subsets of the data
-* Conclusion
 
 # `Fold`s are versatile
 
@@ -983,8 +972,6 @@ We use a central abstraction very similar to the one described in this talk
 * We combine and run `Fold`s side-by-side using `Applicative` operations
 * Each `Fold` `focus`es in on just the subset data it cares about
 * Automatic Parallelism!
-
-![](awake-logo.svg)
 
 # Conclusions
 
