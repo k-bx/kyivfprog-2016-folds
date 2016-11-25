@@ -6,6 +6,7 @@
 
 # Огляд проблеми, яку вирішуємо
 
+- Порахувати від 1 до 1000 не так-то й просто
 - Система записує складні структуровані дані у великій кількості
 - Їх потрібно аналізувати, генеруючи деякий результат, візуалізацію
 
@@ -17,7 +18,7 @@
 - Важко тестувати
 - Відсутність композиції
 
-# "Beautiful folds"
+# "Beautiful folds" (Красиві згортачі?)
 
 - [Beautiful folding (Max Rabkin, 2008)](http://squing.blogspot.com/2008/11/beautiful-folding.html)
 - [Composable streaming folds (Gabriel Gonzalez, 2013)](http://www.haskellforall.com/2013/08/composable-streaming-folds.html)
@@ -113,7 +114,7 @@ sum :: Num n => Fold n n
 sum = Fold Sum getSum
 ```
 
-# Приклад використання
+# Простий приклад
 
 ```haskell
 >>> fold sum [1..10]
@@ -185,7 +186,7 @@ average = Fold tally summarize
         numerator / fromIntegral denominator
 ```
 
-# Приклад використання
+# Приклад
 
 ```haskell
 >>> fold average [1..10]
@@ -274,7 +275,7 @@ length :: Num n => Fold i n
 length = Fold (\_ -> Sum 1) getSum
 ```
 
-# Приклади використання
+# Приклади
 
 ```haskell
 >>> fold head [1..10]
@@ -322,7 +323,7 @@ ema = Fold tally summarize
     summarize (EMA _ x) = x * 0.3
 ```
 
-# Приклад використання
+# Приклад
 
 ```haskell
 >>> fold ema [1..10]
@@ -390,7 +391,7 @@ uniques hash = Fold tally summarize
 
 Справжня версія набагато більш "дужа" (Див `hyperloglog` від E. Kmett)
 
-# Приклад використання
+# Приклад
 
 ```haskell
 main :: IO ()
@@ -439,7 +440,7 @@ combine (Fold tallyL summarizeL) (Fold tallyR summarizeR) = Fold tally summarize
     summarize (sL, sR) = (summarizeL sL, summarizeR sR)
 ```
 
-# Приклад використання
+# Приклад
 
 ```haskell
 >>> fold (combine sum product) [1..10]
@@ -642,69 +643,9 @@ standardDeviation = sqrt ((sumOfSquares / length) - (sum / length) ^ 2)
 28.86607004772212
 ```
 
-# `Fold`s are versatile
+# Фолдимо `ListT`
 
-So far we've only defined one function that consumes `Fold`s:
-
-```haskell
-fold :: Fold i o -> [i] -> o
-fold (Fold tally summarize) is = summarize (foldl' mappend mempty (map tally is))
-```
-
-... but the `Fold` type is rather unopinionated:
-
-```haskell
-data Fold i o = forall m . Monoid m => Fold (i -> m) (m -> o)
-```
-
-... so we can use `Fold`s in more interesting ways.
-
-# Parallel `fold`s
-
-We can run `Fold`s in parallel, for example:
-
-```haskell
-import Control.Parallel.Strategies
-
-length :: Fold i Int
-length = Fold (\_ -> Sum 1) getSum
-
-average :: Fractional a => Fold a a
-average = sum / fmap fromIntegral length
-
-fold' :: Fold i o -> [[i]] -> o
-fold' (Fold tally summarize) iss =
-    summarize (reduce (map inner iss `using` parList rseq))
-  where
-    reduce   = Data.Foldable.foldl' mappend mempty
-    inner is = reduce (map tally is)
-```
-
-This takes advantage of the associativity property of `Monoid`s
-
-# Example usage
-
-```haskell
-main :: IO ()
-main = print (fold' average (replicate 4 (map fromIntegral [(1::Int)..250000000])))
-```
-
-Note: this is ~7x slower than single-threaded, but scales with number of cores:
-
-```bash
-$ time ./test +RTS -N4  # 2.1 ns / elem
-1.2500000026843546e8
-
-real    0m2.104s
-user    0m8.060s
-sys     0m0.137s
-```
-
-Most of the slow-down is due to losing list fusion in the switch to parallelism
-
-# Folding a `ListT`
-
-`ListT` from the `list-transformers` package is defined like this:
+`ListT` із пакету `list-transformers` визначено так:
 
 ```haskell
 newtype ListT m a = ListT { next :: m (Step m a) }
@@ -712,7 +653,7 @@ newtype ListT m a = ListT { next :: m (Step m a) }
 data Step m a = Cons a (ListT m a) | Nil
 ```
 
-We can fold that, too!
+Можемо його згорнути!
 
 ```haskell
 {-# LANGUAGE BangPatterns #-}
@@ -731,9 +672,9 @@ foldListT (Fold tally summarize) = go mempty
             Cons x l' -> go (mappend m (tally x)) l'
 ```
 
-# Example usage
+# Приклад
 
-We can fold effectful streams this way:
+Можемо таким чином згорнути "effectful streams":
 
 ```haskell
 stdin :: ListT IO String
@@ -756,9 +697,9 @@ $ yes | head -10000000 | ./example
 10000000
 ```
 
-# Folding streaming libraries
+# Згортаємо потокові бібліотеки
 
-This trick can be applied to other streaming libraries, too, such as:
+Можемо таким самим чином згорнути:
 
 * `conduit`
 * `io-streams`
@@ -768,147 +709,9 @@ This trick can be applied to other streaming libraries, too, such as:
 * `pipes`
 * `turtle`
 
-Every `Fold` you define can be reused as-is for all of these ecosystems
+Кожен `Fold` може бути перевикористаним в будь-якій із цих систем
 
-# Rollups / Buckets
-
-You don't have to fold the entire data set!
-
-```haskell
-i0 ==(tally)=> m0 ==(summarize)=> o0
-
-i1 ==(tally)=> m1 ==(summarize)=> o1
-
-i2 ==(tally)=> m2 ==(summarize)=> o2
-
-i3 ==(tally)=> m3 ==(summarize)=> o3
-
-i4 ==(tally)=> m4 ==(summarize)=> o4
-
-i5 ==(tally)=> m5 ==(summarize)=> o5
-
-i6 ==(tally)=> m6 ==(summarize)=> o6
-
-i7 ==(tally)=> m7 ==(summarize)=> o7
-```
-
-You can fold data in arbitrary buckets.
-
-For example, each data point can be folded as a single 1-element bucket.
-
-# Rollups / Buckets
-
-... or you can roll up data in buckets of two:
-
-```haskell
-i0 ==(tally)=> m0 \
-                   (mappend)=> m01 ==(summarize)=> o01
-i1 ==(tally)=> m1 /
-
-i2 ==(tally)=> m2 \
-                   (mappend)=> m23 ==(summarize)=> o23
-i3 ==(tally)=> m3 /
-
-i4 ==(tally)=> m4 \
-                   (mappend)=> m45 ==(summarize)=> o45
-i5 ==(tally)=> m5 /
-
-i6 ==(tally)=> m6 \
-                   (mappend)=> m67 ==(summarize)=> o67
-i7 ==(tally)=> m7 /
-```
-
-# Rollups / Buckets
-
-... or in buckets of four:
-
-```haskell
-i0 ==(tally)=> m0 \
-                   (mappend)=> m01 \
-i1 ==(tally)=> m1 /                 \
-                                     (mappend)=> m0123 ==(summarize)=> o0123
-i2 ==(tally)=> m2 \                 /
-                   (mappend)=> m23 /
-i3 ==(tally)=> m3 /
-
-i4 ==(tally)=> m4 \
-                   (mappend)=> m45 \
-i5 ==(tally)=> m5 /                 \
-                                     (mappend)=> m4567 ==(summarize)=> o4567
-i6 ==(tally)=> m6 \                 /
-                   (mappend)=> m67 /
-i7 ==(tally)=> m7 /
-```
-
-# Rollups / Buckets
-
-... or in buckets of eight:
-
-```haskell
-i0 ==(tally)=> m0 \
-                   (mappend)=> m01 \
-i1 ==(tally)=> m1 /                 \
-                                     (mappend)=> m0123 \
-i2 ==(tally)=> m2 \                 /                   \
-                   (mappend)=> m23 /                     \
-i3 ==(tally)=> m3 /                                       \
-                                                           (mappend)=> m01234567 ==(summarize)=> o01234567
-i4 ==(tally)=> m4 \                                       /
-                   (mappend)=> m45 \                     /
-i5 ==(tally)=> m5 /                 \                   /
-                                     (mappend)=> m4567 /
-i6 ==(tally)=> m6 \                 /
-                   (mappend)=> m67 /
-i7 ==(tally)=> m7 /
-```
-
-# Client-side aggregation!
-
-You can delegate some of the `Fold` work to clients:
-
-```
-         Client 0              Server
-       +----------+          +--------- ...
-i00 => |  m00\    |          |
-i01 => |  m01->m0 | => m0 => | m0
-i02 => |  m02/    |          |   \
-       +----------+          |    \
-                             |     \
-                             |      >m => o
-         Client 1            |     /
-       +----------+          |    /
-i10 => |  m10\    |          |   /
-i11 => |  m11->m1 | => m1 => | m1
-i12 => |  m12/    |          |
-       +----------+          +--------- ...
-```
-
-The clients `tally` and the server `summarize`s.  Both of them `mappend`.
-
-# Caveats
-
-This requires a stronger condition that your `Monoid`s are commutative.
-
-This also requires that you run Haskell code on your clients
-
-This also requires a change to the `Fold` type:
-
-```haskell
-data Fold i o = forall m . (Monoid m, Binary m) => Fold (i -> m) (m -> o)
-
-instance (Binary a, Binary b) => Binary (Pair a b) where ...
-```
-
-# Questions?
-
-* `Fold` basics
-* Non-trivial `Fold`s
-* Composing multiple `Fold`s into a single `Fold`
-* Alternative ways to consume `Fold`s
-* **Focusing in on subsets of the data**
-* Conclusion
-
-# Lenses
+# Лінзи
 
 ```haskell
 {-# LANGUAGE RankNTypes #-}
@@ -927,7 +730,7 @@ focus _1 :: Fold i o -> Fold (i, x) o
 focus _Just :: Fold i o -> Fold (Maybe i) o
 ```
 
-# Example usage
+# Приклад
 
 ```haskell
 items1 :: [Either Int String]
@@ -953,41 +756,166 @@ items2 = [Nothing, Just (1, "Foo"), Just (2, "Bar"), Nothing, Just (5, "Baz")]
 2
 ```
 
-# Questions?
+# На (нашій) практиці
 
-* `Fold` basics
-* Non-trivial `Fold`s
-* Composing multiple `Fold`s into a single `Fold`
-* Alternative ways to consume `Fold`s
-* Focusing in on subsets of the data
-* **Conclusion**
+- Великі структури даних івентів
+- Декілька джерел
+- Великі структури даних звітів
+- Більшість результатів — "в часі"
+- Багато обв’язки для збереження та завантаження
 
-# We use this trick at work!
-
-Our work involves high-performance parallel processing of network packets
-
-We use a central abstraction very similar to the one described in this talk
-
-* We formulate each analysis as a `Fold`
-* We combine and run `Fold`s side-by-side using `Applicative` operations
-* Each `Fold` `focus`es in on just the subset data it cares about
-* Automatic Parallelism!
-
-# Conclusions
-
-One simple and composable analysis type:
+# Івенти
 
 ```haskell
-data Fold i o = forall m . Monoid m => Fold (i -> m) (m -> o)
+data DsAdBid a = DsAdBid
+    { _abImpressionId :: ImpressionId
+    , _abDelay        :: Maybe PageLoadDelay
+    , _abDsAccountId  :: DsAccountId
+    , _abAdregionId   :: AdregionId
+    , _abBid          :: Bid
+    , _abCreativeCore :: Maybe Cr.CreativeCore
+    }
+    deriving (Show, Eq, Generic)
+
+data CreativeCore
+  = CreativeCore
+      { _coreTitle       :: Maybe Title
+      , _coreDescription :: Maybe Description
+      , _coreSponsor     :: Maybe Sponsor
+      , _coreImgURL      :: Maybe (Valid RawURL)
+      }
+  deriving (Eq, Generic, Show)
 ```
 
-... which supports:
+# Folds.hs
 
-* `Applicative` operations
-* Numeric operations
-* Parallelism
-* Bucketing / rollups
-* `focus`
-* any streaming ecosystem
+```haskell
+-- | Count events
+countFold :: (Hashable k, Eq k)
+          => (ev -> Maybe k)
+          -> L.Fold ev (MonoidalHashMap k (Sum Integer))
+countFold keyF = L.Fold s mempty id incr
+  where
+    incr m ev = m (\k -> M.modify (+1) k m) (keyF ev)
+```
 
-... and supports many non-trivial useful analyses.
+# Простий випадок
+
+```haskell
+-- | SELECT GROUPKEY(round_one_hour(timestamp)),
+--          count()
+--   FROM ds_ad_load_events
+processCountLoadsPerHour :: Mode -> IO ()
+processCountLoadsPerHour mode = void . runConsumerInMode mode $ do
+    let kf ev = Just (rewindToHour (ev ^. timestamp))
+    let (EvProducer prod) = evProducerW start end
+    res <- purelyFold (countFold kf) (prod :: EventProducer (Event DsAdLoad))
+    liftIO (print res)
+    -- :: MonoidalHashMap KeyDsAdregion (Sum Integer)
+```
+
+# Складніше
+
+- помітьте, як ми передаємо мапу в пам’яті замість джойнів
+
+```haskell
+-- | SELECT GROUPKEY(ds_id, adregion_id, round5min(timestamp)),
+--          count(ds_ad_load_events)
+--          earnings(ds_ad_load_events)
+--          count(ds_click_events)
+--   FROM ds_ad_load_events, ds_click_events
+processCountLoadsAndClicksAndEarningsConcurrent :: Mode -> IO ()
+processCountLoadsAndClicksAndEarningsConcurrent mode = void . runConsumerInMode mode $ do
+    (KeyFunction kf) <- getKeyFunctionDsAdregion
+    let (EvProducer prod) = evProducerW start end
+    ((lc,le),cc) <- concurrently2
+        (purelyFold ((,) <$> countFold kf <*> earningsFold kf)
+                    (prod :: EventProducer (Event DsAdLoad)))
+        (purelyFold (countFold kf)
+                    (prod :: EventProducer (Event DsClick)))
+    liftIO (print (mhmZip3 lc le cc))
+    -- :: MonoidalHashMap KeyDsAdregion (Sum Integer, Sum MoneyAmount,
+    --                                   Sum Integer)
+
+type KeyAdregionDs = (AdregionId, DsProviderId, UTCTime)
+getKeyFunctionDsAdregion :: Consumer (KeyFunction KeyAdregionDs)
+
+keyFunctionAdregionDs :: KeyConstraints KeyAdregionDs ev
+                      => HashMap DsAccountId DsProviderId 
+                      -> (ev -> Maybe KeyAdregionDs)
+keyFunctionAdregionDs dsMap event = do
+    let accountID = event ^. dsAccountId
+    dsID         <- H.lookup accountID dsMap
+    let region    = event ^. adregionId
+    let timekey   = rewindTo5Min (event ^. timestamp)
+    return (region, dsID, timekey)
+```
+
+# Складніші репорти
+
+```haskell
+data Report label =
+       Report { scope      :: label
+              , timeseries :: MonoidalHashMap UTCTime ReportPayload
+              } deriving (Show, Eq)
+data ReportPayload
+    = ReportPayload { loads          :: !(Sum Integer)
+                    , impressions    :: !(Sum Integer)
+                    , clicks         :: !(Sum Integer)
+                    , ctr            :: !(Avg Double)
+                    , earnings       :: !(Sum MoneyAmount)
+                    , avgEarnings    :: !(Avg MoneyAmount)
+                    , avgEarningsCpc :: !(Avg MoneyAmount)}
+  deriving (Show, Eq, Generic)
+```
+
+# `Fold`и для складніших репортів
+
+```haskell
+processStats = do
+  aggs <- aggregateEventStreams dsMap (evProducer   startTime endTime
+                                   :: EventProducer (Event DsAdLoad))
+                                  (evProducer   startTime endTime
+                                   :: EventProducer (Event DsImpression))
+                                  (evProducer   startTime endTime
+                                   :: EventProducer (Event DsClick))
+                                  (evProducer   startTime endTime
+                                   :: EventProducer (Event DsAvailabilityCheck))
+                                  (evProducer   startTime endTime
+                                   :: EventProducer (Event DsAdAvail))
+                                  (evProducer   startTime endTime
+                                   :: EventProducer (Event DsAdUnavail))
+                                  (evProducer   startTime endTime
+                                   :: EventProducer (Event DsAdError))
+                                  (evProducer   startTime endTime
+                                   :: EventProducer (Event DsCookieSync))
+  where
+    ...
+```
+
+# ... продовження ...
+
+```haskell
+    impFold :: PayloadFold (Event DsImpression)
+    impFold = mkBaseFold impressionsL countFold <>
+              mkBaseFold ctrL ctrFold
+
+    clickFold :: PayloadFold (Event DsClick)
+    clickFold = mkBaseFold clicksL countFold <>
+                mkBaseFold ctrL ctrFold
+```
+
+# Візуалізація
+
+- GHCJS + Reflex
+
+![dashboard](dashboard.png)
+
+# Чого не вистачає
+
+- Швидкість (data locality, нерівномірність бакетів)
+- Компактне збереження результатів (абстракція розділення по інтервалах та збереження)
+- REPL або блокнотик
+- GUI для репроцессингу
+- Real-time in-memory analytics
+
