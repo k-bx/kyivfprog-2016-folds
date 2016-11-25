@@ -1,14 +1,6 @@
-% Аналізуємо події за допомогою Riak, Pipes та Foldl
-% Kostiantyn Rybnikov
-% November 26, 2016
+# Аналізуємо події за допомогою Riak, Pipes та Foldl
 
----
-fontsize: 12pt
-mainfont: Ubuntu
-geometry: "margin=0.2in, landscape"
----
 
-\newpage
 
 # Огляд проблеми, яку вирішуємо
 
@@ -16,7 +8,7 @@ geometry: "margin=0.2in, landscape"
 - Система записує складні структуровані дані у великій кількості
 - Їх потрібно аналізувати, генеруючи деякий результат, візуалізацію
 
-\newpage
+
 
 # Мотивація, більшість існуючих систем
 
@@ -26,7 +18,7 @@ geometry: "margin=0.2in, landscape"
 - Важко тестувати
 - Відсутність композиції
 
-\newpage
+
 
 # "Beautiful folds" (Красиві згортачі?)
 
@@ -35,7 +27,7 @@ geometry: "margin=0.2in, landscape"
 - [foldl-1.0.0: Composable, streaming, and efficient left folds (Gabriel Gonzalez, 2013)](http://www.haskellforall.com/2013/08/foldl-100-composable-streaming-and.html)
 - Популяризовано Scala-бібліотекою `algebird` , див [MuniHac 2016: Beautiful folds are practical, too](https://www.youtube.com/watch?v=6a5Ti0r8Q2s)
 
-\newpage
+
 
 # Beautiful folds – проблема
 
@@ -53,7 +45,7 @@ Prelude Data.List Data.List| :}
 <Huge space leak>
 ```
 
-\newpage
+
 
 # Beautiful folds – наївне вирішення
 
@@ -66,7 +58,7 @@ mean = go 0 0
                       go (s+x) (l+1) xs
 ```
 
-\newpage
+
 
 # Еволюція
 
@@ -80,7 +72,7 @@ data Fold b a = F (a -> b -> a) a
 data Fold i o = forall m . Monoid m => Fold (i -> m) (m -> o)
 ```
 
-\newpage
+
 
 # Beautiful folds в один слайд
 
@@ -109,7 +101,7 @@ focus :: (forall m . Monoid m => Getting m b a) -> Fold a o -> Fold b o
 focus lens (Fold tally summarize) = Fold (foldMapOf lens tally) summarize
 ```
 
-\newpage
+
 
 # Простий приклад
 
@@ -132,7 +124,7 @@ sum :: Num n => Fold n n
 sum = Fold Sum getSum
 ```
 
-\newpage
+
 
 # Простий приклад
 
@@ -155,7 +147,7 @@ user    0m0.316s
 sys     0m0.003s
 ```
 
-\newpage
+
 
 # Як це працює?
 
@@ -187,7 +179,7 @@ print (fold sum [1, 2, 3, 4])
 = print 10
 ```
 
-\newpage
+
 
 # Більш цікавий приклад
 
@@ -210,7 +202,7 @@ average = Fold tally summarize
         numerator / fromIntegral denominator
 ```
 
-\newpage
+
 
 # Приклад
 
@@ -233,7 +225,7 @@ user    0m1.237s
 sys     0m0.005s
 ```
 
-\newpage
+
 
 # Немає витоку простору!
 
@@ -241,7 +233,7 @@ sys     0m0.005s
 
 ![](space.png)
 
-\newpage
+
 
 # Як це працює?
 
@@ -276,7 +268,7 @@ print (fold average [1, 2, 3])
 = print (6 / fromIntegral 3)
 ```
 
-\newpage
+
 
 # Прості `Fold`и
 
@@ -307,7 +299,7 @@ length :: Num n => Fold i n
 length = Fold (\_ -> Sum 1) getSum
 ```
 
-\newpage
+
 
 # Приклади
 
@@ -328,7 +320,7 @@ True
 10
 ```
 
-\newpage
+
 
 # Експоненційне ковзне середнє
 
@@ -359,7 +351,7 @@ ema = Fold tally summarize
     summarize (EMA _ x) = x * 0.3
 ```
 
-\newpage
+
 
 # Приклад
 
@@ -382,7 +374,7 @@ user    0m2.562s
 sys     0m0.009s
 ```
 
-\newpage
+
 
 # Оцінка кардинальності
 
@@ -403,7 +395,7 @@ uniques = Fold Data.Set.singleton Data.Set.size
 
 ... погано для великих даних
 
-\newpage
+
 
 # Приблизна оцінка кардинальності
 
@@ -433,7 +425,7 @@ uniques hash = Fold tally summarize
 
 Справжня версія набагато більш "дужа" (Див `hyperloglog` від E. Kmett)
 
-\newpage
+
 
 # Приклад
 
@@ -454,7 +446,7 @@ user    0m5.526s
 sys     0m0.007s
 ```
 
-\newpage
+
 
 # Код, що варто вкрасти
 
@@ -471,7 +463,7 @@ sys     0m0.007s
 
 `algebird`'s version of `Fold` is called `Aggregator`
 
-\newpage
+
 
 # Комбінуємо `Fold`и
 
@@ -488,7 +480,7 @@ combine (Fold tallyL summarizeL) (Fold tallyR summarizeR) = Fold tally summarize
     summarize (sL, sR) = (summarizeL sL, summarizeR sR)
 ```
 
-\newpage
+
 
 # Приклад
 
@@ -497,7 +489,7 @@ combine (Fold tallyL summarizeL) (Fold tallyR summarizeR) = Fold tally summarize
 (55,3628800)
 ```
 
-\newpage
+
 
 # `Applicative`
 
@@ -517,7 +509,7 @@ instance Applicative (Fold i) where
         summarize (mF, mX) = summarizeF mF (summarizeX mX)
 ```
 
-\newpage
+
 
 # Строгість
 
@@ -548,7 +540,7 @@ instance Applicative (Fold i) where
 
 Це дозволить використовувати `seq` замість `deepseq`
 
-\newpage
+
 
 # Pairing values
 
@@ -572,7 +564,7 @@ combine :: Applicative f => f a -> f b -> f (a, b)
 (55,3628800)
 ```
 
-\newpage
+
 
 # Анти-паттерн
 
@@ -588,7 +580,7 @@ good xs = fold ((,) <$> sum <*> product) xs
 
 Яка проблема в першої з них?
 
-\newpage
+
 
 # Застосовуємо `Applicative`и
 
@@ -621,7 +613,7 @@ user    0m1.266s
 sys     0m0.006s
 ```
 
-\newpage
+
 
 # `Num`
 
@@ -669,7 +661,7 @@ instance Floating b => Floating (Fold a b) where
     logBase = liftA2 logBase
 ```
 
-\newpage
+
 
 # Числові `Fold`и
 
@@ -687,7 +679,7 @@ instance Floating b => Floating (Fold a b) where
 99
 ```
 
-\newpage
+
 
 # Стандартне відхилення
 
@@ -709,7 +701,7 @@ standardDeviation = sqrt ((sumOfSquares / length) - (sum / length) ^ 2)
 28.86607004772212
 ```
 
-\newpage
+
 
 # Фолдимо `ListT`
 
@@ -740,7 +732,7 @@ foldListT (Fold tally summarize) = go mempty
             Cons x l' -> go (mappend m (tally x)) l'
 ```
 
-\newpage
+
 
 # Приклад
 
@@ -767,7 +759,7 @@ $ yes | head -10000000 | ./example
 10000000
 ```
 
-\newpage
+
 
 # Згортаємо потокові бібліотеки
 
@@ -783,7 +775,7 @@ $ yes | head -10000000 | ./example
 
 Кожен `Fold` може бути перевикористаним в будь-якій із цих систем
 
-\newpage
+
 
 # Лінзи
 
@@ -804,7 +796,7 @@ focus _1 :: Fold i o -> Fold (i, x) o
 focus _Just :: Fold i o -> Fold (Maybe i) o
 ```
 
-\newpage
+
 
 # Приклад
 
@@ -832,7 +824,7 @@ items2 = [Nothing, Just (1, "Foo"), Just (2, "Bar"), Nothing, Just (5, "Baz")]
 2
 ```
 
-\newpage
+
 
 # На (нашій) практиці
 
@@ -842,7 +834,7 @@ items2 = [Nothing, Just (1, "Foo"), Just (2, "Bar"), Nothing, Just (5, "Baz")]
 - Більшість результатів — "в часі"
 - Багато обв’язки для збереження та завантаження
 
-\newpage
+
 
 # Івенти
 
@@ -867,7 +859,7 @@ data CreativeCore
   deriving (Eq, Generic, Show)
 ```
 
-\newpage
+
 
 # Folds.hs
 
@@ -881,7 +873,7 @@ countFold keyF = L.Fold s mempty id incr
     incr m ev = m (\k -> M.modify (+1) k m) (keyF ev)
 ```
 
-\newpage
+
 
 # Простий випадок
 
@@ -898,7 +890,7 @@ processCountLoadsPerHour mode = void . runConsumerInMode mode $ do
     -- :: MonoidalHashMap KeyDsAdregion (Sum Integer)
 ```
 
-\newpage
+
 
 # Складніше
 
@@ -937,7 +929,7 @@ keyFunctionAdregionDs dsMap event = do
     return (region, dsID, timekey)
 ```
 
-\newpage
+
 
 # Складніші репорти
 
@@ -957,7 +949,7 @@ data ReportPayload
   deriving (Show, Eq, Generic)
 ```
 
-\newpage
+
 
 # `Fold`и для складніших репортів
 
@@ -983,7 +975,7 @@ processStats = do
     ...
 ```
 
-\newpage
+
 
 # ... продовження ...
 
@@ -997,7 +989,7 @@ processStats = do
                 mkBaseFold ctrL ctrFold
 ```
 
-\newpage
+
 
 # Візуалізація
 
@@ -1005,7 +997,7 @@ processStats = do
 
 ![dashboard](dashboard.png)
 
-\newpage
+
 
 # Чого не вистачає
 
