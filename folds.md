@@ -1,14 +1,16 @@
-% Analyzing Events via Riak, Pipes and Foldl
+% Аналізуємо події за допомогою Riak, Pipes та Foldl
 % Kostiantyn Rybnikov
 % November 26, 2016
 
-# Аналізуємо події за допомогою Riak, Pipes та Foldl
+\newpage
 
 # Огляд проблеми, яку вирішуємо
 
 - Порахувати від 1 до 1000 не так-то й просто
 - Система записує складні структуровані дані у великій кількості
 - Їх потрібно аналізувати, генеруючи деякий результат, візуалізацію
+
+\newpage
 
 # Мотивація, більшість існуючих систем
 
@@ -18,12 +20,16 @@
 - Важко тестувати
 - Відсутність композиції
 
+\newpage
+
 # "Beautiful folds" (Красиві згортачі?)
 
 - [Beautiful folding (Max Rabkin, 2008)](http://squing.blogspot.com/2008/11/beautiful-folding.html)
 - [Composable streaming folds (Gabriel Gonzalez, 2013)](http://www.haskellforall.com/2013/08/composable-streaming-folds.html)
 - [foldl-1.0.0: Composable, streaming, and efficient left folds (Gabriel Gonzalez, 2013)](http://www.haskellforall.com/2013/08/foldl-100-composable-streaming-and.html)
 - Популяризовано Scala-бібліотекою `algebird` , див [MuniHac 2016: Beautiful folds are practical, too](https://www.youtube.com/watch?v=6a5Ti0r8Q2s)
+
+\newpage
 
 # Beautiful folds – проблема
 
@@ -41,6 +47,8 @@ Prelude Data.List Data.List| :}
 <Huge space leak>
 ```
 
+\newpage
+
 # Beautiful folds – наївне вирішення
 
 ```haskell
@@ -51,6 +59,8 @@ mean = go 0 0
     go s l (x:xs) = s `seq` l `seq`
                       go (s+x) (l+1) xs
 ```
+
+\newpage
 
 # Еволюція
 
@@ -64,7 +74,7 @@ data Fold b a = F (a -> b -> a) a
 data Fold i o = forall m . Monoid m => Fold (i -> m) (m -> o)
 ```
 
-
+\newpage
 
 # Beautiful folds в один слайд
 
@@ -93,6 +103,8 @@ focus :: (forall m . Monoid m => Getting m b a) -> Fold a o -> Fold b o
 focus lens (Fold tally summarize) = Fold (foldMapOf lens tally) summarize
 ```
 
+\newpage
+
 # Простий приклад
 
 ```haskell
@@ -114,6 +126,8 @@ sum :: Num n => Fold n n
 sum = Fold Sum getSum
 ```
 
+\newpage
+
 # Простий приклад
 
 ```haskell
@@ -134,6 +148,8 @@ real    0m0.322s
 user    0m0.316s
 sys     0m0.003s
 ```
+
+\newpage
 
 # Як це працює?
 
@@ -165,6 +181,8 @@ print (fold sum [1, 2, 3, 4])
 = print 10
 ```
 
+\newpage
+
 # Більш цікавий приклад
 
 ```haskell
@@ -185,6 +203,8 @@ average = Fold tally summarize
     summarize (Average numerator denominator) =
         numerator / fromIntegral denominator
 ```
+
+\newpage
 
 # Приклад
 
@@ -207,11 +227,15 @@ user    0m1.237s
 sys     0m0.005s
 ```
 
+\newpage
+
 # Немає витоку простору!
 
 Наша `average` працює за константну пам’ять:
 
 ![](space.png)
+
+\newpage
 
 # Як це працює?
 
@@ -246,6 +270,8 @@ print (fold average [1, 2, 3])
 = print (6 / fromIntegral 3)
 ```
 
+\newpage
+
 # Прості `Fold`и
 
 Все в `Data.Monoid` можна загорнути в `Fold`
@@ -275,6 +301,8 @@ length :: Num n => Fold i n
 length = Fold (\_ -> Sum 1) getSum
 ```
 
+\newpage
+
 # Приклади
 
 ```haskell
@@ -293,6 +321,8 @@ True
 >>> fold length [1..10]
 10
 ```
+
+\newpage
 
 # Експоненційне ковзне середнє
 
@@ -323,6 +353,8 @@ ema = Fold tally summarize
     summarize (EMA _ x) = x * 0.3
 ```
 
+\newpage
+
 # Приклад
 
 ```haskell
@@ -344,6 +376,8 @@ user    0m2.562s
 sys     0m0.009s
 ```
 
+\newpage
+
 # Оцінка кардинальності
 
 Типове питання, що виникає — "оцінити кількість унікальних відвідувачів"
@@ -362,6 +396,8 @@ uniques = Fold Data.Set.singleton Data.Set.size
 ... потребує багато пам’яті
 
 ... погано для великих даних
+
+\newpage
 
 # Приблизна оцінка кардинальності
 
@@ -391,6 +427,8 @@ uniques hash = Fold tally summarize
 
 Справжня версія набагато більш "дужа" (Див `hyperloglog` від E. Kmett)
 
+\newpage
+
 # Приклад
 
 ```haskell
@@ -410,6 +448,8 @@ user    0m5.526s
 sys     0m0.007s
 ```
 
+\newpage
+
 # Код, що варто вкрасти
 
 Деякі ідеї, що вкрадено зі Скала-бібліотеки `algebird`
@@ -424,6 +464,8 @@ sys     0m0.007s
     * `algebird` calls this `BF`
 
 `algebird`'s version of `Fold` is called `Aggregator`
+
+\newpage
 
 # Комбінуємо `Fold`и
 
@@ -440,12 +482,16 @@ combine (Fold tallyL summarizeL) (Fold tallyR summarizeR) = Fold tally summarize
     summarize (sL, sR) = (summarizeL sL, summarizeR sR)
 ```
 
+\newpage
+
 # Приклад
 
 ```haskell
 >>> fold (combine sum product) [1..10]
 (55,3628800)
 ```
+
+\newpage
 
 # `Applicative`
 
@@ -464,6 +510,8 @@ instance Applicative (Fold i) where
 
         summarize (mF, mX) = summarizeF mF (summarizeX mX)
 ```
+
+\newpage
 
 # Строгість
 
@@ -494,6 +542,8 @@ instance Applicative (Fold i) where
 
 Це дозволить використовувати `seq` замість `deepseq`
 
+\newpage
+
 # Pairing values
 
 Тепер ми можемо написати:
@@ -516,6 +566,8 @@ combine :: Applicative f => f a -> f b -> f (a, b)
 (55,3628800)
 ```
 
+\newpage
+
 # Анти-паттерн
 
 Порівняйте дві функції:
@@ -529,6 +581,8 @@ good xs = fold ((,) <$> sum <*> product) xs
 ```
 
 Яка проблема в першої з них?
+
+\newpage
 
 # Застосовуємо `Applicative`и
 
@@ -560,6 +614,8 @@ real    0m1.281s
 user    0m1.266s
 sys     0m0.006s
 ```
+
+\newpage
 
 # `Num`
 
@@ -607,6 +663,8 @@ instance Floating b => Floating (Fold a b) where
     logBase = liftA2 logBase
 ```
 
+\newpage
+
 # Числові `Fold`и
 
 Можемо робити круті штуки:
@@ -622,6 +680,8 @@ instance Floating b => Floating (Fold a b) where
 >>> fold 99 [1..10]
 99
 ```
+
+\newpage
 
 # Стандартне відхилення
 
@@ -642,6 +702,8 @@ standardDeviation = sqrt ((sumOfSquares / length) - (sum / length) ^ 2)
 >>> fold standardDeviation [1..100]
 28.86607004772212
 ```
+
+\newpage
 
 # Фолдимо `ListT`
 
@@ -672,6 +734,8 @@ foldListT (Fold tally summarize) = go mempty
             Cons x l' -> go (mappend m (tally x)) l'
 ```
 
+\newpage
+
 # Приклад
 
 Можемо таким чином згорнути "effectful streams":
@@ -697,6 +761,8 @@ $ yes | head -10000000 | ./example
 10000000
 ```
 
+\newpage
+
 # Згортаємо потокові бібліотеки
 
 Можемо таким самим чином згорнути:
@@ -710,6 +776,8 @@ $ yes | head -10000000 | ./example
 * `turtle`
 
 Кожен `Fold` може бути перевикористаним в будь-якій із цих систем
+
+\newpage
 
 # Лінзи
 
@@ -729,6 +797,8 @@ focus _1 :: Fold i o -> Fold (i, x) o
 
 focus _Just :: Fold i o -> Fold (Maybe i) o
 ```
+
+\newpage
 
 # Приклад
 
@@ -756,6 +826,8 @@ items2 = [Nothing, Just (1, "Foo"), Just (2, "Bar"), Nothing, Just (5, "Baz")]
 2
 ```
 
+\newpage
+
 # На (нашій) практиці
 
 - Великі структури даних івентів
@@ -763,6 +835,8 @@ items2 = [Nothing, Just (1, "Foo"), Just (2, "Bar"), Nothing, Just (5, "Baz")]
 - Великі структури даних звітів
 - Більшість результатів — "в часі"
 - Багато обв’язки для збереження та завантаження
+
+\newpage
 
 # Івенти
 
@@ -787,6 +861,8 @@ data CreativeCore
   deriving (Eq, Generic, Show)
 ```
 
+\newpage
+
 # Folds.hs
 
 ```haskell
@@ -798,6 +874,8 @@ countFold keyF = L.Fold s mempty id incr
   where
     incr m ev = m (\k -> M.modify (+1) k m) (keyF ev)
 ```
+
+\newpage
 
 # Простий випадок
 
@@ -813,6 +891,8 @@ processCountLoadsPerHour mode = void . runConsumerInMode mode $ do
     liftIO (print res)
     -- :: MonoidalHashMap KeyDsAdregion (Sum Integer)
 ```
+
+\newpage
 
 # Складніше
 
@@ -851,6 +931,8 @@ keyFunctionAdregionDs dsMap event = do
     return (region, dsID, timekey)
 ```
 
+\newpage
+
 # Складніші репорти
 
 ```haskell
@@ -868,6 +950,8 @@ data ReportPayload
                     , avgEarningsCpc :: !(Avg MoneyAmount)}
   deriving (Show, Eq, Generic)
 ```
+
+\newpage
 
 # `Fold`и для складніших репортів
 
@@ -893,6 +977,8 @@ processStats = do
     ...
 ```
 
+\newpage
+
 # ... продовження ...
 
 ```haskell
@@ -905,11 +991,15 @@ processStats = do
                 mkBaseFold ctrL ctrFold
 ```
 
+\newpage
+
 # Візуалізація
 
 - GHCJS + Reflex
 
 ![dashboard](dashboard.png)
+
+\newpage
 
 # Чого не вистачає
 
@@ -918,4 +1008,3 @@ processStats = do
 - REPL або блокнотик
 - GUI для репроцессингу
 - Real-time in-memory analytics
-
