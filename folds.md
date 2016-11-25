@@ -2,6 +2,12 @@
 % Kostiantyn Rybnikov
 % November 26, 2016
 
+---
+fontsize: 12pt
+mainfont: Ubuntu
+geometry: "margin=0.2in, landscape"
+---
+
 \newpage
 
 # Огляд проблеми, яку вирішуємо
